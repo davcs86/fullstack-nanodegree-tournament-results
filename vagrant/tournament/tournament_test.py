@@ -131,19 +131,18 @@ def testReportMatches():
             raise ValueError("Each match loser should have zero wins recorded.")
     print "10. After a match, players have updated standings."
 
-
 def testPairings():
-    deleteMatches()
-    deletePlayers()
-    registerPlayer("Twilight Sparkle")
-    registerPlayer("Fluttershy")
-    registerPlayer("Applejack")
-    registerPlayer("Pinkie Pie")
-    standings = playerStandings()
+    deleteTournaments()
+    t = registerTournament("Tournament #1")
+    registerPlayerInTournament(t,"Twilight Sparkle")
+    registerPlayerInTournament(t,"Fluttershy")
+    registerPlayerInTournament(t,"Applejack")
+    registerPlayerInTournament(t,"Pinkie Pie")
+    standings = playerStandings(t)
     [id1, id2, id3, id4] = [row[0] for row in standings]
-    reportMatch(id1, id2)
-    reportMatch(id3, id4)
-    pairings = swissPairings()
+    reportMatch(id1, id2, 1)
+    reportMatch(id3, id4, 1)
+    pairings = swissPairings(t)
     if len(pairings) != 2:
         raise ValueError(
             "For four players, swissPairings should return two pairs.")
@@ -153,7 +152,35 @@ def testPairings():
     if correct_pairs != actual_pairs:
         raise ValueError(
             "After one match, players with one win should be paired.")
-    print "8. After one match, players with one win are paired."
+    print "11. After one match, players with one win are paired."
+
+def testOddPairings():
+    deleteTournaments()
+    t = registerTournament("Tournament #1")
+    registerPlayerInTournament(t,"Twilight Sparkle")
+    registerPlayerInTournament(t,"Fluttershy")
+    registerPlayerInTournament(t,"Applejack")
+    registerPlayerInTournament(t,"Pinkie Pie")
+    registerPlayerInTournament(t,"Odd Player")
+    standings = playerStandings(t)
+    [id1, id2, id3, id4, id5] = [row[0] for row in standings]
+    reportMatch(id1, id2, 1)
+    reportMatch(id3, id4, 1)
+    reportMatch(id5, id5, 0)
+    standings = playerStandings(t)
+    pairings = swissPairings(t)
+    print pairings
+    print standings
+    if len(pairings) != 3:
+        raise ValueError(
+            "For five players, swissPairings should return three pairs.")
+    [(pid5, pname5, pid6, pname6), (pid1, pname1, pid2, pname2), (pid3, pname3, pid4, pname4)] = pairings
+    correct_pairs = set([frozenset([id1, id3]), frozenset([id2, id4]), frozenset([id5, id5])])
+    actual_pairs = set([frozenset([pid1, pid2]), frozenset([pid3, pid4]), frozenset([pid5, pid6])])
+    if correct_pairs != actual_pairs:
+        raise ValueError(
+            "After one match, players with one win should be paired.")
+    print "12. After one match, players with one win are paired."
 
 
 if __name__ == '__main__':
@@ -167,5 +194,6 @@ if __name__ == '__main__':
     testRegisterCountDeletePlayersInTournament()
     testStandingsBeforeMatches()
     testReportMatches()
-    #testPairings()
+    testPairings()
+    testOddPairings()
     print "Success!  All tests pass!"

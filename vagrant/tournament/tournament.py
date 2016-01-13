@@ -72,7 +72,8 @@ def registerPlayerInTournament(tournamentId, playerName):
     """
     conn = connect()
     c = conn.cursor()
-    c.execute("INSERT INTO Players (Name, Tournament_Id) VALUES (%s, %s)", [playerName, tournamentId])
+    c.execute("INSERT INTO Players (Name, Tournament_Id) VALUES (%s, %s)",
+                [playerName, tournamentId])
     conn.commit()
     c = conn.cursor()
     c.execute("SELECT currval(pg_get_serial_sequence('Players','id'))")
@@ -83,7 +84,8 @@ def registerPlayerInTournament(tournamentId, playerName):
 def countPlayersInTournament(tournamentId):
     conn = connect()
     c = conn.cursor()
-    c.execute("SELECT totalPlayers FROM CountPlayersByTournament WHERE Tournament_Id='%s'", [tournamentId])
+    c.execute("""SELECT totalPlayers FROM CountPlayersByTournament
+                WHERE Tournament_Id='%s'""", [tournamentId])
     totalPlayersInTournament = c.fetchone()[0]
     conn.close()
     return totalPlayersInTournament
@@ -111,7 +113,9 @@ def playerStandings(tournamentId):
     """
     conn = connect()
     c = conn.cursor()
-    c.execute("SELECT Player_Id, PlayerName, Wins, Matches FROM StatsByTournament WHERE Tournament_Id='%s'", [tournamentId])
+    c.execute("""SELECT Player_Id, PlayerName, Wins, Matches
+                FROM StatsByTournament WHERE Tournament_Id='%s'""",
+                [tournamentId])
     playerStandings = c.fetchall()
     conn.close()
     return playerStandings
@@ -135,12 +139,13 @@ def reportMatch(player1Id, player2Id, result):
             result= 2 if (result==1) else 1
     conn = connect()
     c = conn.cursor()
-    c.execute("INSERT INTO Matches (Player1_Id, Player2_Id, Result) VALUES (%s, %s, %s)", [player1Id, player2Id, result])
+    c.execute("""INSERT INTO Matches (Player1_Id, Player2_Id, Result)
+                VALUES (%s, %s, %s)""", [player1Id, player2Id, result])
     conn.commit()
     conn.close()
 
 
-def swissPairings():
+def swissPairings(tournamentId):
     """Returns a list of pairs of players for the next round of a match.
 
     Assuming that there are an even number of players registered, each player
@@ -155,3 +160,32 @@ def swissPairings():
         id2: the second player's unique id
         name2: the second player's name
     """
+    conn = connect()
+    c = conn.cursor()
+    c.execute("""SELECT O.Player1_Id, O.Player1Name, O.Player2_Id, O.Player2Name
+                FROM Opponents AS O JOIN CountPlayersByTournament AS C
+                ON C.Tournament_Id = O.Tournament_Id WHERE O.Tournament_Id='%s'
+                AND ((C.totalPlayers%%2)=1 OR O.Player1_Id<>O.Player2_Id)
+                AND O.AlreadyPlayed=False AND O.Player1_Id<=O.Player2_Id""",
+                [tournamentId])
+    unplayedPairs = c.fetchall()
+    c.execute("SELECT (C.totalPlayers%2=1) FROM CountPlayersByTournament AS C")
+    isOddPlayers = c.fetchone()[0]
+    swissPairs = []
+    foundPlayers = []
+    if isOddPlayers:
+        """ Search for the lowest 'bye' """
+        for (p1Id, p1Name, p2Id, p2Name) in reversed(unplayedPairs):
+            if p1Id==p2Id:
+                swissPairs.append([p1Id, p1Name, p2Id, p2Name])
+                foundPlayers.append(p1Id)
+                break
+    for (p1Id, p1Name, p2Id, p2Name) in unplayedPairs:
+        """ Find the unique pairs """
+        if p1Id not in foundPlayers and p2Id not in foundPlayers:
+            swissPairs.append([p1Id, p1Name, p2Id, p2Name])
+            foundPlayers.append(p1Id)
+            foundPlayers.append(p2Id)
+    conn.commit()
+    conn.close()
+    return swissPairs

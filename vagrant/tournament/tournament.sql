@@ -5,6 +5,7 @@
 DROP VIEW CountTournaments;
 DROP VIEW CountPlayers;
 DROP VIEW CountPlayersByTournament;
+DROP VIEW Opponents;
 DROP VIEW StatsByTournament;
 DROP VIEW StatsByPlayer;
 DROP TABLE Matches;
@@ -75,3 +76,35 @@ CREATE VIEW StatsByTournament AS
     LEFT JOIN StatsByPlayer AS S
         ON S.Player_Id=P.Id
     ORDER BY Tournament_Id ASC, Wins DESC, Score DESC, Player_Id ASC;
+
+
+CREATE VIEW Opponents AS
+    SELECT
+        T.Id AS Tournament_Id,
+        P.Id AS Player1_Id,
+        P.Name AS Player1Name,
+        SP.Wins AS Player1Wins,
+        SP.Score AS Player1Score,
+        OP.Id AS Player2_Id,
+        OP.Name AS Player2Name,
+        SOP.Wins AS Player2Wins,
+        SOP.Score AS Player2Score,
+        CASE WHEN M.Result IS NULL THEN FALSE ELSE TRUE END AS AlreadyPlayed
+    FROM Tournaments AS T
+    JOIN Players AS P
+        ON P.Tournament_Id = T.Id
+    CROSS JOIN Players OP
+    LEFT JOIN Matches AS M
+        ON OP.Tournament_Id=P.Tournament_Id
+            AND ((P.Id=M.Player1_Id AND OP.Id=M.Player2_Id)
+                OR (OP.Id=M.Player1_Id AND P.Id=M.Player2_Id))
+    LEFT JOIN StatsByTournament AS SP
+        ON SP.Player_Id=P.Id
+    LEFT JOIN StatsByTournament AS SOP
+        ON SOP.Player_Id=OP.Id
+    ORDER BY
+        Tournament_Id ASC,
+        Player1Wins DESC,
+        Player2Wins DESC,
+        Player1Score DESC,
+        Player2Score DESC;
