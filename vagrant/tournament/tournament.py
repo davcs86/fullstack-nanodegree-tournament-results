@@ -139,15 +139,18 @@ def reportMatch(player1Id, player2Id, result):
       result: result of the match (0=draw, 1=Player1 won, 2=Player2 won)
     """
     if player1Id == player2Id:
-        # A bye game
+        """ A bye game, store it as draw in the DB """
         result = 0
     else:
         minId = min(player1Id, player2Id)
-        if (player2Id == minId and result != 0):
-            # invert the result
+        if (player2Id == minId):
+            """ invert the players' ids, in order to complain P1Id < p2Id
+                this makes work the UNIQUE constraint of the table Matches"""
             player2Id = player1Id
             player1Id = minId
-            result = 2 if (result == 1) else 1
+            """ Exchange result when it's not a draw """
+            if (result != 0):
+                result = 2 if (result == 1) else 1
     conn = connect()
     c = conn.cursor()
     c.execute("""INSERT INTO Matches (Player1_Id, Player2_Id, Result)
@@ -173,10 +176,13 @@ def swissPairings(tournamentId):
     """
     conn = connect()
     c = conn.cursor()
+    """ Based on the non-repeated and still possible pairings
+        returned by the Opponents view """
     c.execute("""SELECT Player1_Id, Player1Name, Player2_Id, Player2Name
                 FROM Opponents WHERE Tournament_Id='%s'""",
               [tournamentId])
     unplayedPairs = c.fetchall()
+    """ Get if there's odd number of players in that tournament """
     c.execute("""SELECT (totalPlayers%%2=1) AS odd
                 FROM CountPlayersByTournament WHERE Tournament_Id='%s'""",
               [tournamentId])
@@ -184,7 +190,8 @@ def swissPairings(tournamentId):
     swissPairs = []
     foundPlayers = []
     if isOddPlayers:
-        """ Search for the lowest 'bye' """
+        """ If there's a odd number of players,
+            search for the lowest ranked 'bye' """
         for (p1Id, p1Name, p2Id, p2Name) in reversed(unplayedPairs):
             if p1Id == p2Id:
                 bye = [p1Id, p1Name, p2Id, p2Name]

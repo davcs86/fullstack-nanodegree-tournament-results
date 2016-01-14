@@ -236,5 +236,5 @@ if __name__ == '__main__':
     testReportMatches()
     testPairings()
     testOddPairings()
-    # deleteTournaments()
+    deleteTournaments()
     print "Success!  All tests pass!"
