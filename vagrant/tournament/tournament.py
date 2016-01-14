@@ -5,9 +5,11 @@
 
 import psycopg2
 
+
 def connect():
     """Connect to the PostgreSQL database.  Returns a database connection."""
     return psycopg2.connect("dbname='tournament'")
+
 
 def deleteTournaments():
     deleteMatches()
@@ -17,6 +19,7 @@ def deleteTournaments():
     c.execute("DELETE FROM Tournaments")
     conn.commit()
     conn.close()
+
 
 def registerTournament(tournamentName):
     conn = connect()
@@ -29,14 +32,16 @@ def registerTournament(tournamentName):
     conn.close()
     return newTournamentId
 
+
 def countTournaments():
     conn = connect()
     c = conn.cursor()
-    c.execute("SELECT * FROM CountTournaments")
+    c.execute("SELECT COUNT(*) FROM Tournaments")
     totalTournaments = c.fetchone()[0]
     conn.commit()
     conn.close()
     return totalTournaments
+
 
 def deleteMatches():
     """Remove all the match records from the database."""
@@ -45,6 +50,7 @@ def deleteMatches():
     c.execute("DELETE FROM Matches")
     conn.commit()
     conn.close()
+
 
 def deletePlayers():
     """Remove all the player records from the database."""
@@ -55,15 +61,17 @@ def deletePlayers():
     conn.commit()
     conn.close()
 
+
 def countPlayers():
     """Returns the number of players currently registered."""
     conn = connect()
     c = conn.cursor()
-    c.execute("SELECT * FROM CountPlayers")
+    c.execute("SELECT COUNT(*) FROM Players")
     totalPlayers = c.fetchone()[0]
     conn.commit()
     conn.close()
     return totalPlayers
+
 
 def registerPlayerInTournament(tournamentId, playerName):
     """Adds a player to the tournament database.
@@ -73,13 +81,14 @@ def registerPlayerInTournament(tournamentId, playerName):
     conn = connect()
     c = conn.cursor()
     c.execute("INSERT INTO Players (Name, Tournament_Id) VALUES (%s, %s)",
-                [playerName, tournamentId])
+              [playerName, tournamentId])
     conn.commit()
     c = conn.cursor()
     c.execute("SELECT currval(pg_get_serial_sequence('Players','id'))")
     newPlayerInTournamentId = c.fetchone()[0]
     conn.close()
     return newPlayerInTournamentId
+
 
 def countPlayersInTournament(tournamentId):
     conn = connect()
@@ -98,11 +107,12 @@ def deletePlayersInTournament(tournamentId):
     conn.commit()
     conn.close()
 
+
 def playerStandings(tournamentId):
     """Returns a list of the players and their win records, sorted by wins.
 
-    The first entry in the list should be the player in first place, or a player
-    tied for first place if there is currently a tie.
+    The first entry in the list should be the player in first place,
+    or a player tied for first place if there is currently a tie.
 
     Returns:
       A list of tuples, each of which contains (id, name, wins, matches):
@@ -115,10 +125,11 @@ def playerStandings(tournamentId):
     c = conn.cursor()
     c.execute("""SELECT Player_Id, PlayerName, Wins, Matches
                 FROM StatsByTournament WHERE Tournament_Id='%s'""",
-                [tournamentId])
+              [tournamentId])
     playerStandings = c.fetchall()
     conn.close()
     return playerStandings
+
 
 def reportMatch(player1Id, player2Id, result):
     """Records the outcome of a single match between two players.
@@ -127,16 +138,16 @@ def reportMatch(player1Id, player2Id, result):
       player2Id:  the id number of the player #2
       result: result of the match (0=draw, 1=Player1 won, 2=Player2 won)
     """
-    if player1Id==player2Id:
+    if player1Id == player2Id:
         # A bye game
-        result = 0;
+        result = 0
     else:
-        minId=min(player1Id, player2Id)
-        if (player2Id==minId and result!=0):
+        minId = min(player1Id, player2Id)
+        if (player2Id == minId and result != 0):
             # invert the result
-            player2Id=player1Id
-            player1Id=minId
-            result= 2 if (result==1) else 1
+            player2Id = player1Id
+            player1Id = minId
+            result = 2 if (result == 1) else 1
     conn = connect()
     c = conn.cursor()
     c.execute("""INSERT INTO Matches (Player1_Id, Player2_Id, Result)
@@ -162,30 +173,33 @@ def swissPairings(tournamentId):
     """
     conn = connect()
     c = conn.cursor()
-    c.execute("""SELECT O.Player1_Id, O.Player1Name, O.Player2_Id, O.Player2Name
-                FROM Opponents AS O JOIN CountPlayersByTournament AS C
-                ON C.Tournament_Id = O.Tournament_Id WHERE O.Tournament_Id='%s'
-                AND ((C.totalPlayers%%2)=1 OR O.Player1_Id<>O.Player2_Id)
-                AND O.AlreadyPlayed=False AND O.Player1_Id<=O.Player2_Id""",
-                [tournamentId])
+    c.execute("""SELECT Player1_Id, Player1Name, Player2_Id, Player2Name
+                FROM Opponents WHERE Tournament_Id='%s'""",
+              [tournamentId])
     unplayedPairs = c.fetchall()
-    c.execute("SELECT (C.totalPlayers%2=1) FROM CountPlayersByTournament AS C")
+    c.execute("""SELECT (totalPlayers%%2=1) AS odd
+                FROM CountPlayersByTournament WHERE Tournament_Id='%s'""",
+              [tournamentId])
     isOddPlayers = c.fetchone()[0]
     swissPairs = []
     foundPlayers = []
     if isOddPlayers:
         """ Search for the lowest 'bye' """
         for (p1Id, p1Name, p2Id, p2Name) in reversed(unplayedPairs):
-            if p1Id==p2Id:
-                swissPairs.append([p1Id, p1Name, p2Id, p2Name])
+            if p1Id == p2Id:
+                bye = [p1Id, p1Name, p2Id, p2Name]
                 foundPlayers.append(p1Id)
                 break
     for (p1Id, p1Name, p2Id, p2Name) in unplayedPairs:
         """ Find the unique pairs """
-        if p1Id not in foundPlayers and p2Id not in foundPlayers:
+        if (p1Id != p2Id and
+           (p1Id not in foundPlayers and p2Id not in foundPlayers)):
             swissPairs.append([p1Id, p1Name, p2Id, p2Name])
             foundPlayers.append(p1Id)
             foundPlayers.append(p2Id)
+    if isOddPlayers:
+        """ Append the 'bye' to the pairs """
+        swissPairs.append(bye)
     conn.commit()
     conn.close()
     return swissPairs
